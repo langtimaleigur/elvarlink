@@ -39,7 +39,7 @@ export default async function LinksPage() {
   // Fetch domains
   const { data: domains, error: domainsError } = await supabase
     .from("domains")
-    .select("id, domain, is_primary, primary_domain_id")
+    .select("id, domain, is_primary, primary_domain_id, verified, verification_method, txt_record_value")
     .eq("user_id", user.id);
 
   if (domainsError) {

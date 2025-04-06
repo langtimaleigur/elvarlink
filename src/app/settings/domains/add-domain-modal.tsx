@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 import { addNewDomain, verifyDomainTXT, verifyDomainWellKnown } from '@/lib/actions/domains'
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription } from "../../../components/ui/alert"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 type Domain = {

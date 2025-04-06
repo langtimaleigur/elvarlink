@@ -47,7 +47,7 @@ type LinkWithData = {
   destination_url: string;
   redirect_type: string;
   tags: string[];
-  epc: number;
+  epc?: number;
   status: string;
   note: string | null;
   expire_at: string | null;
@@ -120,7 +120,7 @@ export function LinksTable({ links, type }: LinksTableProps) {
               )}
               {type === "top" && (
                 <TableCell className="text-right">
-                  ${link.epc.toFixed(2)}
+                  ${link.epc ? link.epc.toFixed(2) : '0.00'}
                 </TableCell>
               )}
               {type === "broken" && (
