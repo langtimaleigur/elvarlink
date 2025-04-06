@@ -24,7 +24,7 @@ export function LoginForm() {
       })
       if (error) throw error
       // Use router.push instead of window.location
-      router.push('/dashboard')
+      router.push('/')
     } catch (error: any) {
       setError(error.message)
     } finally {

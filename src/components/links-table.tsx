@@ -36,11 +36,8 @@ import { FilterFn } from "@tanstack/react-table";
 type Domain = {
   id: string;
   domain: string;
-  groups: {
-    id: string;
-    group_path: string;
-    domain_id: string;
-  }[];
+  is_primary: boolean;
+  primary_domain_id: string | null;
 };
 
 type LinkWithData = {
@@ -78,19 +75,10 @@ const multiSelectFilter: FilterFn<any> = (row, id, filterValue) => {
   return filterValue.includes(value);
 };
 
-const domainFilter: FilterFn<any> = (row, id, filterValue) => {
-  if (!filterValue || !filterValue.length) return true;
-  const link = row.original;
-  const domainId = link.domain_id;
-  const groupId = link.group_id;
-  
-  return filterValue.some((v: string) => {
-    const [filterDomainId, filterGroupId] = v.split(":");
-    if (filterGroupId) {
-      return domainId === filterDomainId && groupId === filterGroupId;
-    }
-    return domainId === filterDomainId;
-  });
+const domainFilter: FilterFn<LinkWithData> = (row, columnId, filterValue) => {
+  if (!filterValue || filterValue.length === 0) return true;
+  const domainId = row.getValue(columnId) as string;
+  return filterValue.includes(domainId);
 };
 
 const tagsFilter: FilterFn<any> = (row, id, filterValue) => {
@@ -179,15 +167,20 @@ export function LinksTable({ data, domains, allTags }: LinksTableProps) {
     
     // Get domain from domain property if it exists
     if (link.domain && link.domain.domain) {
-      const domainName = link.domain.domain;
-      const groupPath = link.group && link.group.group_path ? `/${link.group.group_path}` : '';
-      fullLink = `${domainName}${groupPath}/${link.slug}`;
+      fullLink = `${link.domain.domain}/${link.slug}`;
     } else {
       // Fallback to finding domain in the domains array
       const domain = domains.find(d => d.id === link.domain_id);
-      const group = domain?.groups.find(g => g.id === link.group_id);
-      fullLink = `${domain?.domain || ''}${group ? `/${group.group_path}` : ''}/${link.slug}`;
+      fullLink = `${domain?.domain || ''}/${link.slug}`;
     }
+    
+    // Check for expiry date
+    const expiresAt = link.expire_at ? new Date(link.expire_at) : null;
+    const now = new Date();
+    
+    // Calculate days until expiry
+    const daysUntilExpiry = expiresAt ? 
+      Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
     
     navigator.clipboard.writeText(fullLink);
     toast.success("Link copied to clipboard");
@@ -214,14 +207,11 @@ export function LinksTable({ data, domains, allTags }: LinksTableProps) {
         
         // Get domain from domain property if it exists
         if (link.domain && link.domain.domain) {
-          const domainName = link.domain.domain;
-          const groupPath = link.group && link.group.group_path ? `/${link.group.group_path}` : '';
-          fullLink = `${domainName}${groupPath}/${link.slug}`;
+          fullLink = `${link.domain.domain}/${link.slug}`;
         } else {
           // Fallback to finding domain in the domains array
           const domain = domains.find(d => d.id === link.domain_id);
-          const group = domain?.groups.find(g => g.id === link.group_id);
-          fullLink = `${domain?.domain || ''}${group ? `/${group.group_path}` : ''}/${link.slug}`;
+          fullLink = `${domain?.domain || ''}/${link.slug}`;
         }
         
         // Check for expiry date

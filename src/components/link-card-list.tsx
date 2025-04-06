@@ -5,7 +5,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatDistanceToNow, subDays, format } from 'date-fns';
-import { ColumnFiltersState } from "@tanstack/react-table";
+import { ColumnFiltersState, FilterFn } from "@tanstack/react-table";
 import {
   LineChart,
   Line,
@@ -74,11 +74,8 @@ import { DataTableToolbar } from "./ui/data-table-toolbar";
 type Domain = {
   id: string;
   domain: string;
-  groups: {
-    id: string;
-    group_path: string;
-    domain_id: string;
-  }[];
+  is_primary: boolean;
+  primary_domain_id: string | null;
 };
 
 type ClickData = {
@@ -101,7 +98,6 @@ type ClicksMap = {
 type LinkWithData = {
   id: string;
   domain_id: string | null;
-  group_id: string | null;
   slug: string;
   destination_url: string;
   redirect_type: string;
@@ -117,9 +113,8 @@ type LinkWithData = {
   clicksByDate?: { date: string; count: number }[];
   domain?: {
     domain: string;
-  };
-  group?: {
-    group_path: string;
+    is_primary: boolean;
+    primary_domain_id: string | null;
   };
 };
 
@@ -253,13 +248,10 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
     let fullLink = '';
 
     if (link.domain && link.domain.domain) {
-      const domainName = link.domain.domain;
-      const groupPath = link.group && link.group.group_path ? `/${link.group.group_path}` : '';
-      fullLink = `${domainName}${groupPath}/${link.slug}`;
+      fullLink = `${link.domain.domain}/${link.slug}`;
     } else {
       const domain = domains.find(d => d.id === link.domain_id);
-      const group = domain?.groups.find(g => g.id === link.group_id);
-      fullLink = `${domain?.domain || ''}${group ? `/${group.group_path}` : ''}/${link.slug}`;
+      fullLink = `${domain?.domain || ''}/${link.slug}`;
     }
 
     navigator.clipboard.writeText(fullLink);
@@ -316,17 +308,10 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
       return false;
     }
 
-    // Apply domain/group filter
+    // Apply domain filter
     const domainFilters = columnFilters.find(f => f.id === 'domain_id')?.value as string[] || [];
-    if (domainFilters.length) {
-      const match = domainFilters.some(filter => {
-        const [filterDomainId, filterGroupId] = filter.split(':');
-        if (filterGroupId) {
-          return link.domain_id === filterDomainId && link.group_id === filterGroupId;
-        }
-        return link.domain_id === filterDomainId;
-      });
-      if (!match) return false;
+    if (domainFilters.length && link.domain_id && !domainFilters.includes(link.domain_id)) {
+      return false;
     }
 
     // Apply redirect type filter
@@ -335,9 +320,9 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
       return false;
     }
 
-    // Apply tags filter
+    // Apply tag filter
     const tagFilters = columnFilters.find(f => f.id === 'tags')?.value as string[] || [];
-    if (tagFilters.length && !tagFilters.some(tag => link.tags?.includes(tag))) {
+    if (tagFilters.length && !link.tags?.some(tag => tagFilters.includes(tag))) {
       return false;
     }
 
@@ -367,14 +352,10 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
   // Get full link URL
   const getFullLink = (link: LinkWithData) => {
     if (link.domain && link.domain.domain) {
-      const domainName = link.domain.domain;
-      const groupPath = link.group && link.group.group_path ? `/${link.group.group_path}` : '';
-      return `${domainName}${groupPath}/${link.slug}`;
-    } else {
-      const domain = domains.find(d => d.id === link.domain_id);
-      const group = domain?.groups.find(g => g.id === link.group_id);
-      return `${domain?.domain || ''}${group ? `/${group.group_path}` : ''}/${link.slug}`;
+      return `${link.domain.domain}/${link.slug}`;
     }
+    const domain = domains.find(d => d.id === link.domain_id);
+    return `${domain?.domain || ''}/${link.slug}`;
   };
 
   // Helper to generate SVG path for chart
@@ -413,6 +394,12 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
     }
 
     return path;
+  };
+
+  const domainFilter: FilterFn<LinkWithData> = (row, columnId, filterValue) => {
+    if (!filterValue || filterValue.length === 0) return true;
+    const domainId = row.getValue(columnId) as string;
+    return filterValue.includes(domainId);
   };
 
   // If not yet client-side rendered, show a simplified version to prevent hydration errors
@@ -465,7 +452,6 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
           <DataTableToolbar
             table={{
               getState: () => ({ columnFilters }),
-              getColumn: () => ({ getFilterValue: () => undefined, setFilterValue: () => { } }),
               resetColumnFilters: () => setColumnFilters([])
             }}
             domains={domains}

@@ -8,9 +8,9 @@
     --radius: 0.75rem;
     --background: oklch(0 0 0);
     --foreground: oklch(1 0 0);
-    --card: oklch(0.21 0.006 285.885);
+    --card: oklch(0.15 0.00 49);
     --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.21 0.006 285.885);
+    --popover: oklch(0.15 0.00 49);
     --popover-foreground: oklch(0.985 0 0);
     --primary: oklch(0.56 0.223 256.76);
     --primary-foreground: oklch(1 0 0);
@@ -70,4 +70,15 @@
 
 .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
   background-color: hsl(var(--muted));
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

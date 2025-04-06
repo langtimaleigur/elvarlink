@@ -2,16 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { ChevronDown } from "lucide-react";
 
 interface DataTableToolbarProps<TData> {
   table: {
@@ -19,7 +18,7 @@ interface DataTableToolbarProps<TData> {
     getColumn?: (id: string) => { getFilterValue: () => any; setFilterValue: (value: any) => void } | undefined;
     resetColumnFilters: () => void;
   };
-  domains?: { id: string; domain: string; groups: { id: string; group_path: string }[] }[];
+  domains?: { id: string; domain: string; is_primary: boolean; primary_domain_id: string | null }[];
   allTags?: string[];
 }
 
@@ -98,16 +97,11 @@ export function DataTableToolbar<TData>({
       filters.push({ column: "status", value, label: value });
     });
 
-    // Domain/group filters
+    // Domain filters
     const domainFilters = columnFilters.find(f => f.id === "domain_id")?.value as string[] || [];
     domainFilters.forEach(value => {
-      const [domainId, groupId] = value.split(":");
-      const domain = domains.find(d => d.id === domainId);
-      const group = domain?.groups.find(g => g.id === groupId);
-      const label = group 
-        ? `${domain?.domain}/${group.group_path}`
-        : domain?.domain || value;
-      filters.push({ column: "domain_id", value, label });
+      const domain = domains.find(d => d.id === value);
+      filters.push({ column: "domain_id", value, label: domain?.domain || value });
     });
 
     // Type filters
@@ -146,78 +140,116 @@ export function DataTableToolbar<TData>({
   return (
     <div className="space-y-4 flex-1">
       <div className="flex flex-wrap gap-2">
-        <div className="w-auto sm:w-[150px]">
-          <Select
-            onValueChange={(value) => handleFilterChange("status", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="w-fit">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-fit bg-[#1C1C1C]"
+              >
+                {(() => {
+                  const column = table.getColumn?.("status");
+                  return column ? column.getFilterValue() || "Status" : "Status";
+                })()}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => handleFilterChange("status", "active")}>
+                Active
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFilterChange("status", "inactive")}>
+                Inactive
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFilterChange("status", "expired")}>
+                Expired
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="w-auto sm:w-[200px]">
-          <Select
-            onValueChange={(value) => handleFilterChange("domain_id", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Domain/Group" />
-            </SelectTrigger>
-            <SelectContent>
-              {domains.map((domain) => (
-                <div key={domain.id}>
-                  <SelectItem value={domain.id} className="font-semibold">
-                    {domain.domain}
-                  </SelectItem>
-                  {domain.groups.map((group) => (
-                    <SelectItem
-                      key={group.id}
-                      value={`${domain.id}:${group.id}`}
-                      className="pl-4"
-                    >
-                      {domain.domain}/{group.group_path}
-                    </SelectItem>
-                  ))}
-                </div>
+        <div className="w-fit">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-fit bg-[#1C1C1C]"
+              >
+                {(() => {
+                  const column = table.getColumn?.("domain_id");
+                  const value = column?.getFilterValue();
+                  return domains?.find(d => d.id === value)?.domain || "Domain";
+                })()}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {domains?.map((domain) => (
+                <DropdownMenuItem 
+                  key={domain.id}
+                  onClick={() => handleFilterChange("domain_id", domain.id)}
+                >
+                  {domain.domain}
+                </DropdownMenuItem>
               ))}
-            </SelectContent>
-          </Select>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="w-auto sm:w-[150px]">
-          <Select
-            onValueChange={(value) => handleFilterChange("redirect_type", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Redirect Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="301">301 Permanent</SelectItem>
-              <SelectItem value="307">307 Temporary</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="w-fit">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-fit bg-[#1C1C1C]"
+              >
+                {(() => {
+                  const column = table.getColumn?.("redirect_type");
+                  return column ? column.getFilterValue() || "Redirect Type" : "Redirect Type";
+                })()}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => handleFilterChange("redirect_type", "301")}>
+                301 Permanent
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFilterChange("redirect_type", "307")}>
+                307 Temporary
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="w-auto sm:w-[200px]">
-          <Select
-            onValueChange={(value) => handleFilterChange("tags", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Tags" />
-            </SelectTrigger>
-            <SelectContent>
-              {allTags.map((tag) => (
-                <SelectItem key={tag} value={tag}>
+        <div className="w-fit">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-fit bg-[#1C1C1C]"
+              >
+                {(() => {
+                  const column = table.getColumn?.("tags");
+                  return column ? column.getFilterValue() || "Tags" : "Tags";
+                })()}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {allTags?.map((tag) => (
+                <DropdownMenuItem 
+                  key={tag}
+                  onClick={() => handleFilterChange("tags", tag)}
+                >
                   {tag}
-                </SelectItem>
+                </DropdownMenuItem>
               ))}
-            </SelectContent>
-          </Select>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

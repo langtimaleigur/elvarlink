@@ -36,10 +36,10 @@ export default async function LinksPage() {
 
   const supabase = createServerComponentClient({ cookies });
 
-  // Fetch domains and groups
+  // Fetch domains
   const { data: domains, error: domainsError } = await supabase
     .from("domains")
-    .select("id, domain")
+    .select("id, domain, is_primary, primary_domain_id")
     .eq("user_id", user.id);
 
   if (domainsError) {
@@ -47,36 +47,15 @@ export default async function LinksPage() {
     return <div>Error loading domains: {domainsError.message}</div>;
   }
 
-  const { data: groups, error: groupsError } = await supabase
-    .from("domain_groups")
-    .select("id, domain_id, group_path")
-    .in("domain_id", domains?.map(d => d.id) || []);
-
-  if (groupsError) {
-    console.error("Error fetching groups:", groupsError);
-    return <div>Error loading groups: {groupsError.message}</div>;
-  }
-
-  // Combine domains with their groups
-  const domainsWithGroups = domains?.map(domain => ({
-    ...domain,
-    groups: groups?.filter(group => group.domain_id === domain.id) || []
-  })) || [];
-
-  // Fetch links
+  // Fetch links with their domain information
   const { data: links, error } = await supabase
     .from("links")
     .select(`
       *,
-      domain_id,
-      group:domain_groups (
-        group_path,
-        domain:domains (
-          domain
-        )
-      ),
       domain:domains!links_domain_id_fkey (
-        domain
+        domain,
+        is_primary,
+        primary_domain_id
       ),
       clicks:clicks(count)
     `)
@@ -100,14 +79,14 @@ export default async function LinksPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Links Manager</h1>
         <Suspense fallback={<div className="w-[120px] h-10 bg-muted/20 rounded animate-pulse"></div>}>
-          <CreateLinkModal />
+          <CreateLinkModal domains={domains || []} />
         </Suspense>
       </div>
 
       <Suspense fallback={<LinkCardListSkeleton />}>
         <LinkCardList 
           data={links || []} 
-          domains={domainsWithGroups}
+          domains={domains || []}
           allTags={allTags}
         />
       </Suspense>

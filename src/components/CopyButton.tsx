@@ -10,17 +10,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface CopyButtonProps {
   value: string;
+  displayValue?: string;
+  className?: string;
 }
 
-export function CopyButton({ value }: CopyButtonProps) {
+export function CopyButton({ value, displayValue, className }: CopyButtonProps) {
   const [hasCopied, setHasCopied] = useState(false);
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      // Ensure the value has https:// prefix for clipboard
+      const valueToCopy = value.startsWith('http') ? value : `https://${value}`;
+      await navigator.clipboard.writeText(valueToCopy);
       setHasCopied(true);
       toast.success("Link copied to clipboard!");
       setTimeout(() => setHasCopied(false), 2000);
@@ -35,16 +40,13 @@ export function CopyButton({ value }: CopyButtonProps) {
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
             onClick={copyToClipboard}
-            className="h-8 w-8"
-          >
-            {hasCopied ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <Copy className="h-3 w-3" />
+            className={cn(
+              "h-auto p-0 hover:bg-transparent text-muted-foreground hover:text-foreground",
+              className
             )}
-            <span className="sr-only">Copy link</span>
+          >
+            {displayValue || value}
           </Button>
         </TooltipTrigger>
         <TooltipContent>

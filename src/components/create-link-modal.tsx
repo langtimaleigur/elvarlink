@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, CalendarIcon, Info } from "lucide-react";
+import { CalendarIcon, Info, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { DomainGroupSelect } from "./domain-group-select";
 import {
   Accordion,
   AccordionContent,
@@ -55,21 +54,28 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { verifyDomainTXT, verifyDomainWellKnown } from '@/lib/actions/domains';
+import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 
 type Domain = {
   id: string;
   domain: string;
-  groups: {
-    id: string;
-    group_path: string;
-    domain_id: string;
-  }[];
+  is_primary: boolean;
+  primary_domain_id: string | null;
+  verified: boolean;
+  verification_method: "TXT" | "FILE" | null;
+  txt_record_value: string | null;
 };
 
-export function CreateLinkModal() {
+interface CreateLinkModalProps {
+  domains: Domain[];
+}
+
+export function CreateLinkModal({ domains: initialDomains }: CreateLinkModalProps) {
   const [open, setOpen] = useState(false);
-  const [selectedDomainGroup, setSelectedDomainGroup] = useState<string>("");
-  const [domains, setDomains] = useState<Domain[]>([]);
+  const [selectedDomainId, setSelectedDomainId] = useState<string>("");
   const [slug, setSlug] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [expirationDate, setExpirationDate] = useState<Date | undefined>();
@@ -77,60 +83,24 @@ export function CreateLinkModal() {
   const [epc, setEpc] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [existingTags, setExistingTags] = useState<string[]>([]);
-  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
   const [redirectType, setRedirectType] = useState<string>("307");
   const [status, setStatus] = useState<string>("active");
   const [notes, setNotes] = useState<string>("");
+  const [domains, setDomains] = useState<Domain[]>(initialDomains);
   const router = useRouter();
   const supabase = createClientComponentClient();
   const slugInputRef = useRef<HTMLInputElement>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<{
+    message: string;
+    lastChecked: Date | null;
+  }>({ message: "", lastChecked: null });
 
   useEffect(() => {
     if (open) {
-      fetchExistingTags();
       fetchDomains();
     }
   }, [open]);
-
-  useEffect(() => {
-    if (openTooltip) {
-      const timer = setTimeout(() => {
-        setOpenTooltip(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [openTooltip]);
-
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => {
-        slugInputRef.current?.focus();
-      }, 100);
-    }
-  }, [open]);
-
-  const fetchExistingTags = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("links")
-      .select("tags")
-      .eq("user_id", user.id)
-      .not("tags", "is", null);
-
-    if (error) {
-      console.error("Error fetching tags:", error);
-      return;
-    }
-
-    const allTags = data
-      .flatMap(link => link.tags || [])
-      .filter((tag, index, self) => self.indexOf(tag) === index)
-      .sort();
-
-    setExistingTags(allTags);
-  };
 
   const fetchDomains = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -146,48 +116,23 @@ export function CreateLinkModal() {
       return;
     }
 
-    const { data: groupsData, error: groupsError } = await supabase
-      .from("domain_groups")
-      .select("*")
-      .in("domain_id", domainsData.map(d => d.id));
-
-    if (groupsError) {
-      toast.error("Failed to fetch groups");
-      return;
-    }
-
-    const domainsWithGroups = domainsData.map(domain => ({
-      ...domain,
-      groups: groupsData.filter(group => group.domain_id === domain.id)
-    }));
-
-    setDomains(domainsWithGroups);
+    setDomains(domainsData || []);
   };
 
   const getSelectedDomain = () => {
-    const [domainId] = selectedDomainGroup.split(":");
-    return domains.find(d => d.id === domainId);
-  };
-
-  const getSelectedGroup = () => {
-    const [domainId, groupId] = selectedDomainGroup.split(":");
-    const domain = domains.find(d => d.id === domainId);
-    return domain?.groups.find(g => g.id === groupId);
-  };
-
-  const getDisplayValue = () => {
-    const domain = getSelectedDomain();
-    const group = getSelectedGroup();
-    
-    if (!domain) return "Select domain";
-    if (!group) return domain.domain;
-    return `${domain.domain}/${group.group_path}`;
+    return domains.find(d => d.id === selectedDomainId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDomainGroup || !slug) {
+    if (!selectedDomainId || !slug) {
       toast.error("Please select a domain and enter a slug");
+      return;
+    }
+
+    const selectedDomain = getSelectedDomain();
+    if (!selectedDomain?.verified) {
+      toast.error("Please verify your domain before creating links");
       return;
     }
 
@@ -198,13 +143,10 @@ export function CreateLinkModal() {
       return;
     }
 
-    const [domainId, groupId] = selectedDomainGroup.split(":");
-
     try {
       const { error } = await supabase.from("links").insert({
         user_id: user.id,
-        domain_id: domainId,
-        group_id: groupId || null,
+        domain_id: selectedDomainId,
         slug,
         destination_url: destinationUrl,
         redirect_type: redirectType || "307",
@@ -231,6 +173,52 @@ export function CreateLinkModal() {
     }
   };
 
+  const handleVerifyDomain = async () => {
+    const selectedDomain = getSelectedDomain();
+    if (!selectedDomain) return;
+
+    setIsVerifying(true);
+    setVerificationStatus(prev => ({ ...prev, lastChecked: new Date() }));
+
+    try {
+      const result = selectedDomain.verification_method === "TXT"
+        ? await verifyDomainTXT(selectedDomain.id)
+        : await verifyDomainWellKnown(selectedDomain.id);
+
+      if (result.success) {
+        setVerificationStatus({
+          message: "Domain verified successfully!",
+          lastChecked: new Date()
+        });
+        toast.success("Domain verified successfully!");
+        fetchDomains(); // Refresh domains list
+      } else {
+        setVerificationStatus({
+          message: "Not yet verified. This can take up to 24h.",
+          lastChecked: new Date()
+        });
+        toast.error(result.reason || "Verification failed. Please check your settings.");
+      }
+    } catch (error) {
+      setVerificationStatus({
+        message: "An error occurred during verification",
+        lastChecked: new Date()
+      });
+      toast.error("Failed to verify domain");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const formatTimeSinceLastCheck = () => {
+    if (!verificationStatus.lastChecked) return null;
+    
+    const seconds = Math.floor((new Date().getTime() - verificationStatus.lastChecked.getTime()) / 1000);
+    if (seconds < 60) return `${seconds} seconds ago`;
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -252,33 +240,30 @@ export function CreateLinkModal() {
               <Label>URL</Label>
               <div className="flex w-full">
                 <Select 
-                  value={selectedDomainGroup} 
-                  onValueChange={setSelectedDomainGroup}
+                  value={selectedDomainId} 
+                  onValueChange={setSelectedDomainId}
                 >
                   <SelectTrigger className="w-fit rounded-r-none border-r-0">
                     <SelectValue placeholder="Select domain">
-                      {getDisplayValue()}
+                      {getSelectedDomain()?.domain || "Select domain"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
                     {domains.map((domain) => (
-                      <div key={domain.id}>
-                        <SelectItem 
-                          value={domain.id}
-                          className="font-semibold hover:bg-accent/50 pl-2"
-                        >
-                          {domain.domain}
-                        </SelectItem>
-                        {domain.groups.map((group) => (
-                          <SelectItem 
-                            key={group.id} 
-                            value={`${domain.id}:${group.id}`}
-                            className="pl-6 text-sm hover:bg-accent/50"
-                          >
-                            {domain.domain}/{group.group_path}
-                          </SelectItem>
-                        ))}
-                      </div>
+                      <SelectItem 
+                        key={domain.id}
+                        value={domain.id}
+                        className="font-semibold hover:bg-accent/50 pl-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>{domain.domain}</span>
+                          {!domain.verified && (
+                            <Badge variant="secondary" className="text-xs">
+                              Unverified
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -292,6 +277,39 @@ export function CreateLinkModal() {
                   />
                 </div>
               </div>
+              {getSelectedDomain() && !getSelectedDomain()?.verified && (
+                <Alert variant="default" className="bg-muted">
+                  <AlertDescription className="flex flex-col gap-2">
+                    <p>This domain needs to be verified before you can create links.</p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleVerifyDomain}
+                        disabled={isVerifying}
+                      >
+                        {isVerifying ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          'Verify Domain'
+                        )}
+                      </Button>
+                      {verificationStatus.message && (
+                        <span className="text-sm text-muted-foreground">
+                          {verificationStatus.message}
+                          {verificationStatus.lastChecked && (
+                            <span className="ml-1">
+                              Last checked {formatTimeSinceLastCheck()}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </div>
 

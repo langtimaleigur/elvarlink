@@ -57,17 +57,13 @@ import {
 type Domain = {
   id: string;
   domain: string;
-  groups: {
-    id: string;
-    group_path: string;
-    domain_id: string;
-  }[];
+  is_primary: boolean;
+  primary_domain_id: string | null;
 };
 
 type Link = {
   id: string;
   domain_id: string | null;
-  group_id: string | null;
   slug: string;
   destination_url: string;
   redirect_type: string;
@@ -86,9 +82,7 @@ interface EditLinkModalProps {
 }
 
 export function EditLinkModal({ link, domains, open, onOpenChange }: EditLinkModalProps) {
-  const [selectedDomainGroup, setSelectedDomainGroup] = useState<string>(
-    link.group_id ? `${link.domain_id}:${link.group_id}` : link.domain_id || ""
-  );
+  const [selectedDomainId, setSelectedDomainId] = useState<string>(link.domain_id || "");
   const [slug, setSlug] = useState(link.slug);
   const [destinationUrl, setDestinationUrl] = useState(link.destination_url);
   const [expirationDate, setExpirationDate] = useState<Date | undefined>(
@@ -105,28 +99,12 @@ export function EditLinkModal({ link, domains, open, onOpenChange }: EditLinkMod
   const supabase = createClientComponentClient();
 
   const getSelectedDomain = () => {
-    const [domainId] = selectedDomainGroup.split(":");
-    return domains.find(d => d.id === domainId);
-  };
-
-  const getSelectedGroup = () => {
-    const [domainId, groupId] = selectedDomainGroup.split(":");
-    const domain = domains.find(d => d.id === domainId);
-    return domain?.groups.find(g => g.id === groupId);
-  };
-
-  const getDisplayValue = () => {
-    const domain = getSelectedDomain();
-    const group = getSelectedGroup();
-    
-    if (!domain) return "Select domain";
-    if (!group) return domain.domain;
-    return `${domain.domain}/${group.group_path}`;
+    return domains.find(d => d.id === selectedDomainId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDomainGroup || !slug) {
+    if (!selectedDomainId || !slug) {
       toast.error("Please select a domain and enter a slug");
       return;
     }
@@ -137,8 +115,6 @@ export function EditLinkModal({ link, domains, open, onOpenChange }: EditLinkMod
       toast.error("Not authenticated");
       return;
     }
-
-    const [domainId, groupId] = selectedDomainGroup.split(":");
 
     try {
       console.log("Current status value:", status);
@@ -159,8 +135,7 @@ export function EditLinkModal({ link, domains, open, onOpenChange }: EditLinkMod
       
       // Create base update payload without status
       const baseUpdateData = {
-        domain_id: domainId,
-        group_id: groupId || null,
+        domain_id: selectedDomainId,
         slug,
         destination_url: destinationUrl,
         expire_at: expirationDate,
@@ -268,33 +243,23 @@ export function EditLinkModal({ link, domains, open, onOpenChange }: EditLinkMod
               <Label>URL</Label>
               <div className="flex w-full">
                 <Select 
-                  value={selectedDomainGroup} 
-                  onValueChange={setSelectedDomainGroup}
+                  value={selectedDomainId} 
+                  onValueChange={setSelectedDomainId}
                 >
                   <SelectTrigger className="w-fit rounded-r-none border-r-0">
                     <SelectValue placeholder="Select domain">
-                      {getDisplayValue()}
+                      {getSelectedDomain()?.domain || "Select domain"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
                     {domains.map((domain) => (
-                      <div key={domain.id}>
-                        <SelectItem 
-                          value={domain.id}
-                          className="font-semibold hover:bg-accent/50 pl-2"
-                        >
-                          {domain.domain}
-                        </SelectItem>
-                        {domain.groups.map((group) => (
-                          <SelectItem 
-                            key={group.id} 
-                            value={`${domain.id}:${group.id}`}
-                            className="pl-6 text-sm hover:bg-accent/50"
-                          >
-                            {domain.domain}/{group.group_path}
-                          </SelectItem>
-                        ))}
-                      </div>
+                      <SelectItem 
+                        key={domain.id}
+                        value={domain.id}
+                        className="font-semibold hover:bg-accent/50 pl-2"
+                      >
+                        {domain.domain}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
