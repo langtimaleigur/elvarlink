@@ -3,7 +3,6 @@
 import { cn } from "@/lib/utils";
 import { 
   Circle, 
-  ExternalLink,
   Monitor,
   Smartphone,
   Tablet,
@@ -16,37 +15,41 @@ import {
   TabletIcon,
   MonitorUp,
   Compass,
-  ArrowUpRight,
+  Link2,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { countryToFlag } from "./flag-label";
 import { useState, useEffect } from "react";
-
-type FilterType = 'device' | 'browser' | 'os' | 'country' | 'city' | 'referrer';
+import type { FilterType } from "@/lib/types/analytics";
+import { format } from "date-fns";
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { formatNumber } from '@/lib/utils';
 
 interface AnalyticsItemProps {
-  type: FilterType;
-  value: string;
+  name: string;
   count: number;
-  percentage?: number;
-  onFilterClick?: (type: FilterType, value: string) => void;
-  countryCode?: string; // For cities
-  showPercentages?: boolean;
+  type: FilterType;
+  metadata?: {
+    countryCode?: string;
+    domain?: string;
+    url?: string;
+    epc?: number;
+    clicks?: number;
+    isEarnings?: boolean;
+  };
+  isActive?: boolean;
+  onClick?: () => void;
+  showPercentage?: boolean;
+  total?: number;
 }
 
 // Icon mappings for different categories
 const browserIcons: Record<string, React.ReactNode> = {
   'Chrome': <Chrome className="h-4 w-4" />,
-  'Firefox': <Globe className="h-4 w-4" />, // Replace with Firefox icon when available
-  'Safari': <Compass className="h-4 w-4" />, // Replace with Safari icon when available
-  'Edge': <Globe className="h-4 w-4" />, // Replace with Edge icon when available
-  'Opera': <Globe className="h-4 w-4" />, // Replace with Opera icon when available
-  // Add more browsers as needed
+  'Firefox': <Globe className="h-4 w-4" />,
+  'Safari': <Compass className="h-4 w-4" />,
+  'Edge': <Globe className="h-4 w-4" />,
+  'Opera': <Globe className="h-4 w-4" />,
   'default': <Globe className="h-4 w-4" />
 };
 
@@ -68,39 +71,62 @@ const osIcons: Record<string, React.ReactNode> = {
 };
 
 const getDeviceIcon = (device: string) => {
-  const normalizedDevice = device.toLowerCase();
-  return deviceIcons[normalizedDevice] || deviceIcons.default;
+  const normalizedDevice = device?.toLowerCase() || 'default';
+  for (const [key, icon] of Object.entries(deviceIcons)) {
+    if (normalizedDevice.includes(key)) {
+      return icon;
+    }
+  }
+  return deviceIcons.default;
 };
 
 const getBrowserIcon = (browser: string) => {
-  return browserIcons[browser] || browserIcons.default;
+  const normalizedBrowser = browser?.toLowerCase() || 'default';
+  for (const [key, icon] of Object.entries(browserIcons)) {
+    if (normalizedBrowser.includes(key.toLowerCase())) {
+      return icon;
+    }
+  }
+  return browserIcons.default;
 };
 
 const getOSIcon = (os: string) => {
-  return osIcons[os] || osIcons.default;
+  const normalizedOS = os?.toLowerCase() || 'default';
+  for (const [key, icon] of Object.entries(osIcons)) {
+    if (normalizedOS.includes(key.toLowerCase())) {
+      return icon;
+    }
+  }
+  return osIcons.default;
 };
 
 const getReferrerIcon = (referrer: string) => {
-  return <Globe className="h-3.5 w-3.5" />;
+  return <Globe className="h-4 w-4" />;
 };
 
-export function AnalyticsItem({ 
-  type, 
-  value, 
-  count, 
-  percentage = 0, 
-  onFilterClick,
-  countryCode,
-  showPercentages = false
-}: AnalyticsItemProps) {
-  const [animatedPercentage, setAnimatedPercentage] = useState(5); // Start at minimum 5%
-  const [isHoveringLink, setIsHoveringLink] = useState(false);
+const getLinkIcon = () => {
+  return <Link2 className="h-4 w-4" />;
+};
 
-  // Animate the percentage on mount
+const getExpirationIcon = () => {
+  return <Circle className="h-4 w-4" />;
+};
+
+export function AnalyticsItem({
+  name,
+  count,
+  type,
+  metadata,
+  isActive,
+  onClick,
+  showPercentage,
+  total = 0,
+}: AnalyticsItemProps) {
+  const percentage = total > 0 ? (count / total) * 100 : 0;
+  const [animatedPercentage, setAnimatedPercentage] = useState(5);
+
   useEffect(() => {
-    // Ensure minimum 5% width
     const targetPercentage = Math.max(5, percentage);
-    // Start animation after a small delay
     const timeout = setTimeout(() => {
       setAnimatedPercentage(targetPercentage);
     }, 100);
@@ -110,47 +136,73 @@ export function AnalyticsItem({
   const getIcon = () => {
     switch (type) {
       case 'device':
-        return getDeviceIcon(value);
+        return getDeviceIcon(name);
       case 'browser':
-        return getBrowserIcon(value);
+        return getBrowserIcon(name);
       case 'os':
-        return getOSIcon(value);
+        return getOSIcon(name);
       case 'country':
-        return <span className="text-lg">{countryToFlag(value)}</span>;
+        return <span className="text-lg">{countryToFlag(name)}</span>;
       case 'city':
-        return <span className="text-lg">{countryCode ? countryToFlag(countryCode) : '🏢'}</span>;
+        return <span className="text-lg">{metadata?.countryCode ? countryToFlag(metadata.countryCode) : '🏢'}</span>;
       case 'referrer':
-        return getReferrerIcon(value);
+        return getReferrerIcon(name);
+      case 'link':
+        return getLinkIcon();
       default:
         return null;
     }
   };
 
-  const handleClick = (e: React.MouseEvent) => {
-    // If it's a referrer and clicking the link icon, open the URL
-    if (type === 'referrer' && (e.target as HTMLElement).closest('.referrer-link')) {
-      e.stopPropagation();
-      let url = value;
-      if (!url.startsWith('http')) {
-        url = `https://${url}`;
-      }
-      window.open(url, '_blank');
-    } else {
-      // Otherwise trigger the filter
-      onFilterClick?.(type, value);
+  const formatEarnings = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const displayCount = metadata?.isEarnings ? formatEarnings(count) : formatNumber(count);
+  
+  const tooltipContent = () => {
+    if (metadata?.isEarnings && metadata.epc && metadata.clicks) {
+      return (
+        <div className="space-y-1">
+          <p>EPC: {formatEarnings(metadata.epc)}</p>
+          <p>Clicks: {formatNumber(metadata.clicks)}</p>
+          <p>Total Earnings: {formatEarnings(count)}</p>
+        </div>
+      );
     }
+    if (metadata?.url) {
+      return (
+        <div className="space-y-1">
+          <p>URL: {metadata.url}</p>
+          <p>Clicks: {formatNumber(count)}</p>
+          {metadata.domain && <p>Domain: {metadata.domain}</p>}
+        </div>
+      );
+    }
+    return showPercentage ? `${displayCount} (${percentage.toFixed(1)}%)` : displayCount;
   };
 
   return (
     <div
-      className="group cursor-pointer"
-      onClick={handleClick}
+      className={cn(
+        "group cursor-pointer",
+        isActive && "opacity-100"
+      )}
+      onClick={onClick}
     >
       <div className="flex items-center gap-2">
         <div 
-          className="relative h-8 bg-[#131313] rounded-md overflow-hidden flex-1"
+          className={cn(
+            "relative h-8 bg-[#131313] rounded-md overflow-hidden flex-1",
+            isActive && "ring-1 ring-primary"
+          )}
           style={{ 
-            backgroundImage: `linear-gradient(to right, #2a2a2a ${animatedPercentage}%, transparent ${animatedPercentage}%)`,
+            backgroundImage: `linear-gradient(to right, ${isActive ? '#3b3b3b' : '#2a2a2a'} ${animatedPercentage}%, transparent ${animatedPercentage}%)`,
             transition: 'background-image 0.5s ease-out'
           }}
         >
@@ -159,36 +211,18 @@ export function AnalyticsItem({
               {getIcon()}
             </div>
             <div className="flex-1 min-w-0 flex items-center gap-2 pr-3">
-              <span className="font-medium text-sm truncate">
-                {value}
+              <span className={cn(
+                "font-medium text-sm truncate",
+                isActive && "text-primary"
+              )}>
+                {name}
               </span>
-              {type === 'referrer' && (
-                <TooltipProvider delayDuration={1000}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="p-1.5 rounded-md group-hover:bg-gray-800/50 transition-colors referrer-link">
-                        <ArrowUpRight
-                          className="h-4 w-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:text-blue-400"
-                          onMouseEnter={() => setIsHoveringLink(true)}
-                          onMouseLeave={() => setIsHoveringLink(false)}
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent 
-                      side="top" 
-                      sideOffset={5}
-                      className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-                    >
-                      <p>Visit website</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
             </div>
           </div>
         </div>
-        <div className="w-12 text-right text-sm font-medium">
-          {showPercentages ? `${percentage.toFixed(1)}%` : count}
+        <div className="w-20 text-right text-sm font-medium">
+          {displayCount}
+          {showPercentage && <span className="ml-2 text-muted-foreground">({percentage.toFixed(1)}%)</span>}
         </div>
       </div>
     </div>

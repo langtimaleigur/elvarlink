@@ -265,14 +265,14 @@ export default function DomainsPage() {
                                   <p>1. Add a TXT record to your domain's DNS settings:</p>
                                   <div className="bg-card p-2 rounded-md">
                                     <div className="flex justify-between items-center gap-2">
-                                      <code>@</code>
+                                      <code>_loopy</code>
                                       <Button 
                                         variant="ghost" 
                                         size="sm" 
                                         className="h-6"
                                         onClick={(e) => {
                                           e.preventDefault()
-                                          navigator.clipboard.writeText('@')
+                                          navigator.clipboard.writeText('_loopy')
                                           toast.success("Copied to clipboard", {
                                             style: { background: '#1c1c1c', color: '#fff' }
                                           })

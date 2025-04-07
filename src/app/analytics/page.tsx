@@ -14,16 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkline } from "@/components/analytics/sparkline";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { DeviceBrowserChart } from "@/components/analytics/device-browser-chart";
-import { TopCountries } from "@/components/analytics/top-countries";
-import { TopReferrers } from "@/components/analytics/top-referrers";
-import { LocationStats } from "@/components/analytics/location-stats";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { MoreVertical, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BrokenClick } from "@/components/analytics/analytics-charts";
 import { Suspense } from "react";
+import type { FilterType, Filter } from "@/lib/types";
+import { AnalyticsCard } from "@/components/analytics/analytics-card";
 
 interface Domain {
   id: string;
@@ -121,11 +119,18 @@ interface CityData {
   count: number;
 }
 
-type FilterType = 'device' | 'browser' | 'os' | 'country' | 'city' | 'referrer' | 'domain';
-
-interface Filter {
+interface AnalyticsItemData {
+  name: string;
+  count: number;
   type: FilterType;
-  value: string;
+  metadata?: {
+    domain?: string;
+    url?: string;
+    epc?: number;
+    clicks?: number;
+    isEarnings?: boolean;
+    countryCode?: string;
+  };
 }
 
 export default function AnalyticsPage() {
@@ -263,14 +268,18 @@ export default function AnalyticsPage() {
       .gte("timestamp", startDate.toISOString())
       .lte("timestamp", endDate.toISOString());
 
-    // Apply filters
+    // Apply filters one by one to maintain AND relationship
     filters.forEach(filter => {
       if (filter.type === 'domain') {
         const filteredLinks = linksWithGroups.filter(link => link.domain.domain === filter.value);
         const linkIds = filteredLinks.map(link => link.id);
         clickQuery = clickQuery.in('link_id', linkIds);
+      } else if (filter.type === 'link') {
+        const filteredLink = linksWithGroups.find(link => link.full_url === filter.value);
+        if (filteredLink) {
+          clickQuery = clickQuery.eq('link_id', filteredLink.id);
+        }
       } else if (filter.type === 'referrer') {
-        // Handle referrer filter specially since we need to match the domain part
         clickQuery = clickQuery.ilike('referrer', `%${filter.value}%`);
       } else {
         clickQuery = clickQuery.eq(filter.type, filter.value);
@@ -344,9 +353,9 @@ export default function AnalyticsPage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    const topCountries = allCountries.slice(0, 5);
+    const topCountries = allCountries;
 
-    const processedCities: CityData[] = Array.from(cityCounts.entries())
+    const processedCities = Array.from(cityCounts.entries())
       .map(([name, data]) => ({ 
         name: name.split(", ")[0], 
         country: data.country,
@@ -355,11 +364,10 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.count - a.count);
 
     const allCities = processedCities;
-    const topCities = processedCities.slice(0, 5);
+    const topCities = processedCities;
 
     // Process referrer data
     const referrerCounts = new Map<string, number>();
-   // console.log('Processing referrers from overviewStats:', overviewStats?.length);
     
     overviewStats?.forEach(click => {
       if (click.referrer) {
@@ -372,19 +380,13 @@ export default function AnalyticsPage() {
           // If URL parsing fails, use the referrer as is
           referrer = click.referrer;
         }
-        //console.log('Processing referrer:', referrer);
         referrerCounts.set(referrer, (referrerCounts.get(referrer) || 0) + 1);
       }
     });
-
-    //console.log('Referrer counts:', Array.from(referrerCounts.entries()));
     
     const allReferrers = Array.from(referrerCounts.entries())
       .map(([referrer, count]) => ({ referrer, count }))
       .sort((a, b) => b.count - a.count);
-
-    //console.log('Final allReferrers:', allReferrers);
-    //console.log('Number of referrers:', allReferrers.length);
 
     const topReferrers = allReferrers;
 
@@ -496,12 +498,10 @@ export default function AnalyticsPage() {
 
     // Sort links for different views
     const topLinks = [...linksWithStats]
-      .sort((a, b) => b.total_clicks - a.total_clicks)
-      .slice(0, 5);
+      .sort((a, b) => b.total_clicks - a.total_clicks);
 
     const trendingLinks = [...linksWithStats]
-      .sort((a, b) => b.growth_rate - a.growth_rate)
-      .slice(0, 5);
+      .sort((a, b) => b.growth_rate - a.growth_rate);
 
     const now = new Date();
     const expiringLinks = [...linksWithStats]
@@ -517,16 +517,14 @@ export default function AnalyticsPage() {
         if (!link.expire_at) return false;
         const expireDate = new Date(link.expire_at);
         return expireDate > now;
-      })
-      .slice(0, 5);
+      });
 
     const recentlyExpired = expiringLinks
       .filter(link => {
         if (!link.expire_at) return false;
         const expireDate = new Date(link.expire_at);
         return expireDate <= now;
-      })
-      .slice(0, 5);
+      });
 
     // Process broken clicks
     const brokenClicks = (overviewStats || [])
@@ -777,236 +775,111 @@ export default function AnalyticsPage() {
 
         {/* New Analytics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <DeviceBrowserChart 
-            data={data.deviceBrowserData} 
+          <AnalyticsCard
+            title="Devices & Browsers"
+            data={[
+              ...(data?.deviceBrowserData.device || []).map(item => ({
+                name: item.name,
+                count: item.count,
+                type: 'device' as FilterType
+              })),
+              ...(data?.deviceBrowserData.os || []).map(item => ({
+                name: item.name,
+                count: item.count,
+                type: 'os' as FilterType
+              })),
+              ...(data?.deviceBrowserData.browser || []).map(item => ({
+                name: item.name,
+                count: item.count,
+                type: 'browser' as FilterType
+              }))
+            ]}
+            activeFilters={activeFilters}
             onFilterClick={handleFilterClick}
+            filterTypes={['device', 'os', 'browser']}
+            defaultFilterType="device"
+            maxHeight="250px"
           />
-          <LocationStats 
-            topCountries={data.topCountries}
-            allCountries={data.allCountries}
-            topCities={data.topCities}
-            allCities={data.allCities}
+          <AnalyticsCard
+            title="Locations"
+            data={[
+              ...(data?.topCountries || []).map(item => ({
+                name: item.name,
+                count: item.count,
+                type: 'country' as FilterType
+              })),
+              ...(data?.topCities || []).map(item => ({
+                name: item.name,
+                count: item.count,
+                type: 'city' as FilterType,
+                metadata: {
+                  countryCode: item.country
+                }
+              }))
+            ]}
+            activeFilters={activeFilters}
             onFilterClick={handleFilterClick}
+            filterTypes={['country', 'city']}
+            defaultFilterType="country"
           />
-          <TopReferrers 
-            topReferrers={data.topReferrers} 
-            allReferrers={data.allReferrers}
+          <AnalyticsCard
+            title="Top Referrers"
+            data={(data?.topReferrers || []).map(item => ({
+              name: item.referrer,
+              count: item.count,
+              type: 'referrer' as FilterType
+            }))}
+            activeFilters={activeFilters}
             onFilterClick={handleFilterClick}
           />
         </div>
 
         {/* Links Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Top Links */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Top Links</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {data.topLinks.map((link) => (
-                <div key={link.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <div 
-                              className={cn(
-                                "w-2 h-2 rounded-full",
-                                getStatusDisplay(link.status, link.expire_at).color
-                              )}
-                              style={{
-                                textDecoration: getStatusDisplay(link.status, link.expire_at).textDecoration
-                              }}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{getStatusDisplay(link.status, link.expire_at).label}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <CopyButton 
-                        value={link.full_url} 
-                        displayValue={link.full_url.replace('https://', '')}
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{link.total_clicks} clicks</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild iconOnly>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/links/${link.id}`)}>
-                            View Analytics
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground truncate">
-                    {link.destination_url}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Trending Links */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Trending Links</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {data.trendingLinks.map((link) => (
-                <div key={link.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <div 
-                              className={cn(
-                                "w-2 h-2 rounded-full",
-                                getStatusDisplay(link.status, link.expire_at).color
-                              )}
-                              style={{
-                                textDecoration: getStatusDisplay(link.status, link.expire_at).textDecoration
-                              }}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{getStatusDisplay(link.status, link.expire_at).label}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <CopyButton 
-                        value={link.full_url} 
-                        displayValue={link.full_url.replace('https://', '')}
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>{link.total_clicks} clicks</span>
-                    <span className="text-emerald-500">+{link.growth_rate.toFixed(1)}%</span>
-                  </div>
-                  <Sparkline data={link.click_history} />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Expiring Links */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Link Expiration</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="upcoming" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="upcoming">Expiring Soon</TabsTrigger>
-                  <TabsTrigger value="expired">Recently Expired</TabsTrigger>
-                </TabsList>
-                <TabsContent value="upcoming" className="space-y-4">
-                  {data.expiringLinks.map((link) => (
-                    <div key={link.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <div 
-                                  className={cn(
-                                    "w-2 h-2 rounded-full",
-                                    getStatusDisplay(link.status, link.expire_at).color
-                                  )}
-                                  style={{
-                                    textDecoration: getStatusDisplay(link.status, link.expire_at).textDecoration
-                                  }}
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{getStatusDisplay(link.status, link.expire_at).label}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <CopyButton 
-                            value={link.full_url} 
-                            displayValue={link.full_url.replace('https://', '')}
-                            className="text-sm"
-                          />
-                          <Badge 
-                            variant={
-                              link.expire_at && differenceInDays(new Date(link.expire_at), new Date()) <= 3 
-                                ? 'destructive' 
-                                : 'default'
-                            }
-                          >
-                            {link.expire_at ? `${differenceInDays(new Date(link.expire_at), new Date())}d` : 'No expiry'}
-                          </Badge>
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">
-                              {link.full_url}
-                            </span>
-                            <CopyButton value={link.full_url} />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{link.total_clicks} clicks</span>
-                      </div>
-                      <Sparkline data={link.click_history} />
-                    </div>
-                  ))}
-                </TabsContent>
-                <TabsContent value="expired" className="space-y-4">
-                  {data.recentlyExpired.map((link) => (
-                    <div key={link.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <div 
-                                  className={cn(
-                                    "w-2 h-2 rounded-full",
-                                    getStatusDisplay(link.status, link.expire_at).color
-                                  )}
-                                  style={{
-                                    textDecoration: getStatusDisplay(link.status, link.expire_at).textDecoration
-                                  }}
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{getStatusDisplay(link.status, link.expire_at).label}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <Badge variant="destructive">
-                            Expired {Math.abs(differenceInDays(new Date(link.expire_at!), new Date()))}d ago
-                          </Badge>
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">
-                              {link.full_url}
-                            </span>
-                            <CopyButton value={link.full_url} />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{link.total_clicks} clicks</span>
-                      </div>
-                      <Sparkline data={link.click_history} />
-                    </div>
-                  ))}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <AnalyticsCard
+            title="Links"
+            data={(data?.topLinks || []).map((link: Link): AnalyticsItemData => ({
+              name: link.full_url,
+              count: link.total_clicks || 0,
+              type: 'link' as FilterType,
+              metadata: {
+                domain: link.domain?.domain,
+                url: link.destination_url
+              }
+            }))}
+            activeFilters={activeFilters}
+            onFilterClick={handleFilterClick}
+            filterTypes={['domain']}
+            defaultFilterType="domain"
+          />
+          <AnalyticsCard
+            title="Top Earners"
+            data={(data?.topLinks || [])
+              .filter((link: Link): link is Link & { total_clicks: number; epc: number } => 
+                typeof link.epc === 'number' && 
+                typeof link.total_clicks === 'number' && 
+                link.epc > 0 && 
+                link.total_clicks > 0
+              )
+              .map((link): AnalyticsItemData => ({
+                name: link.full_url,
+                count: link.total_clicks * link.epc,
+                type: 'link' as FilterType,
+                metadata: {
+                  domain: link.domain?.domain,
+                  url: link.destination_url,
+                  epc: link.epc,
+                  clicks: link.total_clicks,
+                  isEarnings: true
+                }
+              }))
+              .sort((a: AnalyticsItemData, b: AnalyticsItemData) => b.count - a.count)
+            }
+            activeFilters={activeFilters}
+            onFilterClick={handleFilterClick}
+            filterTypes={['domain']}
+            defaultFilterType="domain"
+          />
         </div>
       </div>
     </Suspense>

@@ -6,20 +6,6 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-// Create accessibility context
-const AccessibilityContext = React.createContext(false)
-
-export const AccessibilityProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isAccessibilityMode, setIsAccessibilityMode] = React.useState(false)
-  return (
-    <AccessibilityContext.Provider value={isAccessibilityMode}>
-      {children}
-    </AccessibilityContext.Provider>
-  )
-}
-
-export const useAccessibility = () => React.useContext(AccessibilityContext)
-
 const DropdownMenu = DropdownMenuPrimitive.Root
 
 const DropdownMenuTrigger = React.forwardRef<
@@ -27,38 +13,27 @@ const DropdownMenuTrigger = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger> & {
     iconOnly?: boolean;
   }
->(({ className, children, iconOnly, ...props }, ref) => {
-  const isAccessibilityMode = useAccessibility()
-  return (
-    <DropdownMenuPrimitive.Trigger
-      ref={ref}
-      className={cn(
-        "flex items-center rounded-md",
-        "text-sm font-normal",
-        "bg-[#1C1C1C] hover:bg-[#252525]",
-        !isAccessibilityMode && "outline-none focus:outline-none",
-        isAccessibilityMode && "[&:not(:focus-visible)]:outline-none focus-visible:outline-2 focus-visible:outline-white",
-        "data-[state=open]:bg-[#252525]",
-        {
-          "justify-center p-2": iconOnly,
-          "justify-between px-3 py-2": !iconOnly,
-        },
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </DropdownMenuPrimitive.Trigger>
-  )
-})
+>(({ className, children, iconOnly, ...props }, ref) => (
+  <DropdownMenuPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "flex items-center rounded-md text-sm font-normal bg-[#1C1C1C] hover:bg-[#252525] focus:outline-none focus-visible:outline-2 focus-visible:outline-white data-[state=open]:bg-[#252525]",
+      {
+        "justify-center p-2": iconOnly,
+        "justify-between px-3 py-2": !iconOnly,
+      },
+      className
+    )}
+    {...props}
+  >
+    {children}
+  </DropdownMenuPrimitive.Trigger>
+))
 DropdownMenuTrigger.displayName = DropdownMenuPrimitive.Trigger.displayName
 
 const DropdownMenuGroup = DropdownMenuPrimitive.Group
-
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal
-
 const DropdownMenuSub = DropdownMenuPrimitive.Sub
-
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
 const DropdownMenuSubTrigger = React.forwardRef<
@@ -80,8 +55,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
     <ChevronRight className="ml-auto" />
   </DropdownMenuPrimitive.SubTrigger>
 ))
-DropdownMenuSubTrigger.displayName =
-  DropdownMenuPrimitive.SubTrigger.displayName
+DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName
 
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
@@ -90,14 +64,15 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-dropdown-menu-content-transform-origin]",
+      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+      "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-dropdown-menu-content-transform-origin]",
       className
     )}
     {...props}
   />
 ))
-DropdownMenuSubContent.displayName =
-  DropdownMenuPrimitive.SubContent.displayName
+DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName
 
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
@@ -108,11 +83,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 overflow-hidden rounded-md p-1",
-        "min-w-[8rem]",
-        "bg-[#1C1C1C]",
-        "border border-[#333333]",
-        "shadow-lg",
+        "z-50 overflow-hidden rounded-md p-1 min-w-[8rem] bg-[#1C1C1C] border border-[#333333] shadow-lg",
         className
       )}
       {...props}
@@ -127,87 +98,70 @@ const DropdownMenuItem = React.forwardRef<
     inset?: boolean;
     selected?: boolean;
   }
->(({ className, inset, selected, children, ...props }, ref) => {
-  const isAccessibilityMode = useAccessibility()
-  return (
-    <DropdownMenuPrimitive.Item
-      ref={ref}
-      className={cn(
-        "relative flex select-none items-center rounded-sm px-2 py-1.5",
-        "text-sm",
-        !isAccessibilityMode && "outline-none focus:outline-none",
-        isAccessibilityMode && "[&:not(:focus-visible)]:outline-none focus-visible:outline-2 focus-visible:outline-white",
-        {
-          "bg-[#252525]": selected,
-          "hover:bg-[#252525]": !selected,
-          "cursor-default": selected,
-          "cursor-pointer": !selected,
-        },
-        inset && "pl-8",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </DropdownMenuPrimitive.Item>
-  )
-})
+>(({ className, inset, selected, children, ...props }, ref) => (
+  <DropdownMenuPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex select-none items-center rounded-sm px-2 py-1.5 text-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-white",
+      {
+        "bg-[#252525]": selected,
+        "hover:bg-[#252525]": !selected,
+        "cursor-default": selected,
+        "cursor-pointer": !selected,
+      },
+      inset && "pl-8",
+      className
+    )}
+    {...props}
+  >
+    {children}
+  </DropdownMenuPrimitive.Item>
+))
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
 const DropdownMenuCheckboxItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
->(({ className, children, checked, ...props }, ref) => {
-  const isAccessibilityMode = useAccessibility()
-  return (
-    <DropdownMenuPrimitive.CheckboxItem
-      ref={ref}
-      className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm",
-        !isAccessibilityMode && "outline-none",
-        isAccessibilityMode && "outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className
-      )}
-      checked={checked}
-      {...props}
-    >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.CheckboxItem>
-  )
-})
-DropdownMenuCheckboxItem.displayName =
-  DropdownMenuPrimitive.CheckboxItem.displayName
+>(({ className, children, checked, ...props }, ref) => (
+  <DropdownMenuPrimitive.CheckboxItem
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-white",
+      className
+    )}
+    checked={checked}
+    {...props}
+  >
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <DropdownMenuPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </DropdownMenuPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownMenuPrimitive.CheckboxItem>
+))
+DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName
 
 const DropdownMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
->(({ className, children, ...props }, ref) => {
-  const isAccessibilityMode = useAccessibility()
-  return (
-    <DropdownMenuPrimitive.RadioItem
-      ref={ref}
-      className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm",
-        !isAccessibilityMode && "outline-none",
-        isAccessibilityMode && "outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className
-      )}
-      {...props}
-    >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <Circle className="h-2 w-2 fill-current" />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.RadioItem>
-  )
-})
+>(({ className, children, ...props }, ref) => (
+  <DropdownMenuPrimitive.RadioItem
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-white",
+      className
+    )}
+    {...props}
+  >
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <DropdownMenuPrimitive.ItemIndicator>
+        <Circle className="h-2 w-2 fill-current" />
+      </DropdownMenuPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownMenuPrimitive.RadioItem>
+))
 DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
 
 const DropdownMenuLabel = React.forwardRef<

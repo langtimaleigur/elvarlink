@@ -1,10 +1,20 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     darkMode: ['class'],
+	corePlugins: {
+		preflight: true,
+	  },
     content: [
     './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+  	container: {
+  		center: true,
+  		padding: "2rem",
+  		screens: {
+  			"2xl": "1400px",
+  		},
+  	},
   	extend: {
   		borderRadius: {
   			lg: 'var(--radius)',

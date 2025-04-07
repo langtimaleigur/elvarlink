@@ -50,15 +50,15 @@ const DrawerContent = React.forwardRef<
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         
         // Desktop styles (right drawer)
-        "md:top-0 md:right-0 md:bottom-0 md:left-auto md:h-screen md:w-full md:max-w-[800px] md:rounded-none",
-        "md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right",
+        "sm:inset-y-0 sm:right-0 sm:h-full sm:w-[65%] sm:max-w-[500px] sm:rounded-none",
+        "lg:w-[45%]",
         
         className
       )}
       {...props}
     >
-      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted md:hidden" />
-      <div className="overflow-y-auto">
+      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted sm:hidden" />
+      <div className="flex flex-1 flex-col overflow-hidden">
         {children}
       </div>
     </DrawerPrimitive.Content>

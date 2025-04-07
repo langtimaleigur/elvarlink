@@ -208,13 +208,11 @@ export function AnalyticsCharts({ chartData, brokenClicks = [] }: AnalyticsChart
           Dead Link Clicks
           <Drawer>
             <DrawerTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-4 w-4 hover:bg-muted"
+              <div 
+                className="h-4 w-4 hover:bg-muted rounded-md flex items-center justify-center cursor-pointer"
               >
                 <ListIcon className="h-3 w-3" />
-              </Button>
+              </div>
             </DrawerTrigger>
             <DrawerContent>
               <div className="container max-w-screen-2xl mx-auto">
@@ -348,11 +346,11 @@ export function AnalyticsCharts({ chartData, brokenClicks = [] }: AnalyticsChart
             const isPositive = key === 'broken' ? growthRate > 0 : growthRate > 0;
             
             return (
-              <button
+              <div
                 key={key}
                 onClick={() => setActiveChart(key)}
                 className={cn(
-                  "flex flex-1 flex-col justify-center gap-1 px-6 py-4 text-left transition-colors relative",
+                  "flex flex-1 flex-col justify-center gap-1 px-6 py-4 text-left transition-colors relative cursor-pointer",
                   "border-r last:border-r-0",
                   activeChart === key ? "bg-muted" : "hover:bg-muted/50"
                 )}
@@ -366,32 +364,34 @@ export function AnalyticsCharts({ chartData, brokenClicks = [] }: AnalyticsChart
                 <TooltipProvider>
                   <UITooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="secondary" className={cn(
-                        "px-1.5 py-0.5 inline-flex items-center",
-                        growthRate === 0 ? "bg-muted text-muted-foreground hover:bg-muted/80" :
-                        key === 'broken' ? (
-                          growthRate > 0 
-                            ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                            : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                        ) : (
-                          growthRate > 0 
-                            ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                            : "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                        )
-                      )}>
-                        {growthRate === 0 ? (
-                          <span>No change</span>
-                        ) : (
-                          <>
-                            {isPositive ? (
-                              <ArrowUpIcon className="w-3 h-3 mr-1" />
-                            ) : (
-                              <ArrowDownIcon className="w-3 h-3 mr-1" />
-                            )}
-                            <span>{Math.abs(Math.round(growthRate))}%</span>
-                          </>
-                        )}
-                      </Badge>
+                      <div>
+                        <Badge variant="secondary" className={cn(
+                          "px-1.5 py-0.5 inline-flex items-center",
+                          growthRate === 0 ? "bg-muted text-muted-foreground hover:bg-muted/80" :
+                          key === 'broken' ? (
+                            growthRate > 0 
+                              ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                              : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                          ) : (
+                            growthRate > 0 
+                              ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                              : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                          )
+                        )}>
+                          {growthRate === 0 ? (
+                            <span>No change</span>
+                          ) : (
+                            <>
+                              {isPositive ? (
+                                <ArrowUpIcon className="w-3 h-3 mr-1" />
+                              ) : (
+                                <ArrowDownIcon className="w-3 h-3 mr-1" />
+                              )}
+                              <span>{Math.abs(Math.round(growthRate))}%</span>
+                            </>
+                          )}
+                        </Badge>
+                      </div>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Compared to previous period</p>
@@ -401,7 +401,7 @@ export function AnalyticsCharts({ chartData, brokenClicks = [] }: AnalyticsChart
                 {activeChart === key && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                 )}
-              </button>
+              </div>
             );
           })}
         </div>

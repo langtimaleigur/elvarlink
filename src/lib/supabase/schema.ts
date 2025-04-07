@@ -31,6 +31,9 @@ export interface Link {
   updated_at: string;
   expire_at?: string;
   user_id: string;
+  is_broken?: boolean; // did this resolve or fail
+  last_checked_broken?: string; // timestamp of when the link was last checked for brokenness
+  utm_params?: Record<string, string>; // custom UTM tracking fields
 }
 
 // Clicks — one row per unique or duplicate visit
@@ -49,7 +52,7 @@ export interface Click {
   os?: string; // parsed OS (e.g., Android)
 }
 
-// Profiles — user info
+// Profiles — user info and subscription limits
 export interface Profile {
   id: string;
   first_name?: string;
@@ -59,7 +62,16 @@ export interface Profile {
   role: "admin" | "user";
   created_at: string;
   updated_at: string;
-  link_limit?: number;
-  click_limit?: number;
-  retention_limit?: number; // days of click history retention
+
+  // Limits and access settings
+  link_limit?: number;        // Max number of links user can create
+  click_limit?: number;       // Max number of trackable clicks per month
+  retention_limit?: number;   // Days of click history retention
+
+  // Subscription and billing
+  plan?: "free" | "pro" | "business"; // Current plan name
+  stripe_customer_id?: string;       // Stripe customer ID
+  stripe_subscription_id?: string;   // Stripe subscription ID
+  trial_ends_at?: string | null;     // Trial expiration date
+  billing_status?: "active" | "past_due" | "canceled" | "trialing" | null; // Billing status
 }

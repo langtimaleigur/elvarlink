@@ -14,6 +14,7 @@ import {
   YAxis,
   Tooltip as RechartsTooltip,
 } from 'recharts';
+import { LinkCheckButton } from "@/components/LinkCheckButton";
 
 // UI Components
 import {
@@ -113,9 +114,13 @@ type LinkWithData = {
   clicksByDate?: { date: string; count: number }[];
   domain?: {
     domain: string;
+    is_broken?: boolean;
+    last_checked_broken?: string;
     is_primary: boolean;
     primary_domain_id: string | null;
   };
+  is_broken?: boolean;
+  last_checked_broken?: string;
 };
 
 interface LinkCardListProps {
@@ -756,6 +761,30 @@ export function LinkCardList({ data, domains, allTags }: LinkCardListProps) {
                               </span>
                             </div>
                           )}
+                          <div className="pt-2 mt-2 border-t border-border/40">
+                            <div className="text-xs text-muted-foreground mb-2">
+                              {link.is_broken !== undefined && (
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span>Status:</span>
+                                  {link.is_broken ? (
+                                    <span className="text-red-400">Broken</span>
+                                  ) : (
+                                    <span className="text-green-400">Working</span>
+                                  )}
+                                </div>
+                              )}
+                              {link.last_checked_broken && (
+                                <div className="opacity-70">
+                                  Last checked: {formatRelativeTime(link.last_checked_broken)}
+                                </div>
+                              )}
+                            </div>
+                            <LinkCheckButton 
+                              linkId={link.id} 
+                              isBroken={link.is_broken}
+                              lastChecked={link.last_checked_broken}
+                            />
+                          </div>
                         </div>
                       </div>
 

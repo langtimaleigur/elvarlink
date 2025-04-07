@@ -290,14 +290,14 @@ export function AddDomainModal({
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label>Name</Label>
-                        <p className="text-sm text-muted-foreground">Often just '@' in most DNS providers</p>
+                        <p className="text-sm text-muted-foreground">Verification name</p>
                       </div>
                       <div className="flex gap-2">
-                        <Input value="@" readOnly />
+                        <Input value="_loopy" readOnly />
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => handleCopy('@', 'name')}
+                          onClick={() => handleCopy('_loopy', 'name')}
                         >
                           {copiedField === 'name' ? (
                             <Check className="h-4 w-4" />
